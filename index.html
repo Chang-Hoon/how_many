@@ -186,11 +186,13 @@ const fmt=n=>Math.round(n).toLocaleString('ko-KR');
 function run(){const c=read(),S=steps(c);let total=0;const acc=new Array(S.length).fill(0);
  for(const r of REG)for(const[s]of SEX)for(let a=0;a<6;a++){const N=POP[r][s][a];total+=N;let p=N;
   for(let k=0;k<S.length;k++){const st=S[k];if(st[2]){if(!st[2](r,s,a)){p=0}}else p*=st[1](r,s,a);acc[k]+=p;if(!p)break}}
- const res=S.length?acc[S.length-1]:total,pct=res/total;
- const eq=(x,y)=>x.length===y.length&&y.every(v=>x.includes(v));
- const jkd=eq(c.reg,['세종'])&&eq(c.sex,['M'])&&eq(c.age,[4])&&(c.hob.includes(4)&&c.hob.some(h=>h===11||h===12)&&c.hob.every(h=>[4,11,12].includes(h))&&c.hmode==='and')&&!c.rel.length&&!c.mar.length&&c.h1===-Infinity&&c.h2===Infinity&&!(c.w1>0)&&c.w2===Infinity&&!(c.i1>0)&&c.i2===Infinity&&c.gla==='any'&&c.bal==='any';
- $('n').textContent=(jkd?fmt(Math.max(1,res)):fmt(res))+'명';
- $('ratio').textContent=S.length?`전체 인구 ${fmt(total)}명 중 ${pct>=.001?(pct*100).toFixed(pct<.01?2:1)+'%':(pct*100).toFixed(4)+'%'}${res>0?` · 약 ${fmt(1/pct)}명 중 1명`:''}`:`대한민국 주민등록인구 전체 (2026년 10월)`;
+ const has=(x,v)=>!x.length||x.includes(v);
+ const jkd=has(c.reg,'세종')&&has(c.sex,'M')&&has(c.age,4)&&c.hob.includes(4)&&c.hob.some(h=>h===11||h===12)&&c.hob.every(h=>[4,11,12].includes(h))&&c.hmode==='and';
+ let res=S.length?acc[S.length-1]:total;if(jkd&&res<1){res=1;acc[S.length-1]=1}
+ const pct=res/total;
+ $('n').textContent=fmt(res)+'명';
+ const pctTxt=pct>=.001?(pct*100).toFixed(pct<.01?2:1)+'%':pct>=1e-6?(pct*100).toFixed(4)+'%':'0.0001% 미만';
+ $('ratio').textContent=!S.length?'대한민국 주민등록인구 전체 (2026년 10월)':Math.round(res)<1?`전체 인구 ${fmt(total)}명 중 1명 미만으로 추정`:`전체 인구 ${fmt(total)}명 중 ${pctTxt} · 약 ${fmt(1/pct)}명 중 1명`;
  const on=Math.round(pct*200);$('dots').innerHTML=Array.from({length:200},(_,i)=>`<i class="${i<on?'on':''}"></i>`).join('');
  $('dotcap').textContent=on?`점 하나 = 인구 0.5% · 흰 점 ${on}개`:'점 하나 = 인구 0.5% · 0.25% 미만이라 점으로 표시되지 않음';
  const rows=[['전체',total]].concat(S.map((st,k)=>[st[0],acc[k]]));

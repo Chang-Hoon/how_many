@@ -15,6 +15,32 @@
 
 ---
 
+## GitHub Pages로 게시하기
+
+GitHub Pages는 저장소의 HTML 파일을 무료로 웹사이트로 띄워 주는 기능입니다. 게시하면 주소는 다음 형태가 됩니다.
+
+```
+https://<GitHub 아이디>.github.io/<저장소 이름>/
+```
+
+> **공개 범위 주의**: 무료 계정에서 GitHub Pages를 쓰려면 저장소가 **Public(공개)** 이어야 합니다. 저장소의 코드와 게시된 페이지 모두 누구나 볼 수 있습니다. Private 저장소에서 Pages를 쓰려면 GitHub Pro 등 유료 요금제가 필요합니다.
+
+### 방법 A — 웹 브라우저로만 올리기 (Git 설치 불필요)
+
+1. https://github.com 에 로그인합니다.
+2. 오른쪽 위 **+** → **New repository** 를 누릅니다.
+   - Repository name: `How_many` (원하는 이름)
+   - **Public** 선택
+   - 나머지는 기본값 그대로 두고 **Create repository** 클릭
+3. 새 저장소 화면에서 **uploading an existing file** 링크(또는 **Add file → Upload files**)를 누릅니다.
+4. `D:\Z\How_many` 폴더의 `index.html`, `README.md` 를 끌어다 놓고 아래 **Commit changes** 를 누릅니다.
+5. 저장소 상단 **Settings** → 왼쪽 메뉴 **Pages** 로 이동합니다.
+6. **Build and deployment** 에서
+   - Source: **Deploy from a branch**
+   - Branch: **main**, 폴더: **/ (root)** → **Save**
+7. 1~2분 기다린 뒤 같은 Pages 화면을 새로고침하면 상단에 `Your site is live at https://...` 주소가 표시됩니다. 그 주소로 접속하면 됩니다.
+
+### 방법 B — Git 명령어로 올리기
 
 Git이 설치되어 있어야 합니다 (`git --version` 으로 확인, 없으면 https://git-scm.com 에서 설치).
 먼저 GitHub에서 위 2단계처럼 **빈 저장소**(README 추가 안 함)를 만든 뒤, PowerShell에서:
@@ -69,3 +95,6 @@ git push
 
 인구 수치는 `index.html` 안의 `const POP={...}` 에 있습니다. 시도별로 `M`(남성), `F`(여성) 배열이 있고, 순서는 `[10대 이하, 20대, 30대, 40대, 50대, 60대 이상]` 입니다. KOSIS(kosis.kr) 「행정구역(시군구)별/성별/연령별 주민등록인구」에서 새 값을 받아 이 숫자만 바꾸면 됩니다.
 
+### 특수 표시
+
+선택한 지역·성별·나이대에 세종 · 남성 · 50대가 포함되고(여러 개 선택하거나 비워 둔 경우도 포함), 취미 '수영 + 멧돼지 사냥', '수영 + 멧돼지 사육', '수영 + 멧돼지 사육 + 멧돼지 사냥' 중 하나('모두 하는 사람' 기준)를 선택하면, 다른 조건(종교·키·안경 등)과 관계없이 추정값이 1명 미만일 때 `1명` 으로 표시됩니다. 조건 코드는 `index.html` 에서 `jkd` 로 검색하면 찾을 수 있습니다.

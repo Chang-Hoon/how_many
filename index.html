@@ -108,7 +108,7 @@ button.pri{background:var(--ink);color:var(--bg)}
 
 <section class="band notes"><div class="wrap">
 <h2>데이터 출처와 계산 방식</h2>
-<p class="hint" id="ver">앱 버전 2026-11-20 r9</p>
+<p class="hint" id="ver">앱 버전 2026-11-20 r10</p>
 <p class="lede" style="margin-bottom:14px">지역×성별×나이대(17×2×6칸)마다 인원을 두고, 각 조건의 확률을 그 칸의 성별·나이에 맞춰 곱한 뒤 모두 더합니다. 조건끼리는 서로 독립이라고 가정하므로(예: 소득과 키의 관계는 무시) 결과는 어림값으로 보세요.</p>
 <table class="stack"><thead><tr><th>항목</th><th>근거</th><th>처리</th></tr></thead><tbody id="src"></tbody></table>
 </div></section>
@@ -188,7 +188,7 @@ function run(){const c=read(),S=steps(c);let total=0;const acc=new Array(S.lengt
  for(const r of REG)for(const[s]of SEX)for(let a=0;a<6;a++){const N=POP[r][s][a];total+=N;let p=N;
   for(let k=0;k<S.length;k++){const st=S[k];if(st[2]){if(!st[2](r,s,a)){p=0}}else p*=st[1](r,s,a);acc[k]+=p;if(!p)break}}
  const has=(x,v)=>!x.length||x.includes(v);
- const jkd=has(c.reg,'세종')&&has(c.sex,'M')&&has(c.age,4)&&c.hob.includes(4)&&c.hob.some(h=>h===11||h===12)&&c.hob.every(h=>[4,11,12].includes(h))&&c.hmode==='and';
+ const jkd=has(c.reg,'세종')&&has(c.sex,'M')&&has(c.age,4)&&c.hob.some(h=>h===11||h===12)&&c.hob.every(h=>[4,11,12].includes(h))&&(c.hob.length===1||c.hmode==='and');
  let res=S.length?acc[S.length-1]:total;if(jkd&&res<1){res=1;acc[S.length-1]=1}
  const pct=res/total;
  $('n').textContent=fmt(res)+'명';

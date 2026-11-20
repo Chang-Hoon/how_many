@@ -31,6 +31,8 @@ h1{font-size:clamp(30px,4.4vw,48px);line-height:1.08;margin:0 0 8px;font-weight:
 .dots{display:grid;grid-template-columns:repeat(25,1fr);gap:3px;background:rgba(0,0,0,.14);padding:10px;border-radius:4px}
 .dots i{aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.28)}
 .dots i.on{background:#fff}
+.applied{font-size:14px;background:rgba(0,0,0,.16);border-radius:4px;padding:8px 10px;line-height:1.5}
+.applied b{font-weight:800}
 .funnel{display:grid;gap:6px;font-size:14px}
 .fr{display:grid;grid-template-columns:7.5em minmax(0,1fr) 6.2em;gap:8px;align-items:center}
 .bar{height:14px;background:rgba(0,0,0,.18);border-radius:2px;overflow:hidden}
@@ -100,6 +102,7 @@ button.pri{background:var(--ink);color:var(--bg)}
 <aside class="res" aria-live="polite">
   <div><small>조건에 맞는 추정 인원</small><div class="num" id="n">—</div></div>
   <div class="ratio" id="ratio"></div>
+  <div class="applied" id="applied"></div>
   <div class="dots" id="dots" aria-hidden="true"></div>
   <small id="dotcap"></small>
   <div class="funnel" id="fun"></div>
@@ -108,7 +111,7 @@ button.pri{background:var(--ink);color:var(--bg)}
 
 <section class="band notes"><div class="wrap">
 <h2>데이터 출처와 계산 방식</h2>
-<p class="hint" id="ver">앱 버전 2026-11-20 r10</p>
+<p class="hint" id="ver">앱 버전 2026-11-20 r11</p>
 <p class="lede" style="margin-bottom:14px">지역×성별×나이대(17×2×6칸)마다 인원을 두고, 각 조건의 확률을 그 칸의 성별·나이에 맞춰 곱한 뒤 모두 더합니다. 조건끼리는 서로 독립이라고 가정하므로(예: 소득과 키의 관계는 무시) 결과는 어림값으로 보세요.</p>
 <table class="stack"><thead><tr><th>항목</th><th>근거</th><th>처리</th></tr></thead><tbody id="src"></tbody></table>
 </div></section>
@@ -196,6 +199,13 @@ function run(){const c=read(),S=steps(c);let total=0;const acc=new Array(S.lengt
  $('ratio').textContent=!S.length?'대한민국 주민등록인구 전체 (2026년 10월)':Math.round(res)<1?`전체 인구 ${fmt(total)}명 중 1명 미만으로 추정`:`전체 인구 ${fmt(total)}명 중 ${pctTxt} · 약 ${fmt(1/pct)}명 중 1명`;
  const on=Math.round(pct*200);$('dots').innerHTML=Array.from({length:200},(_,i)=>`<i class="${i<on?'on':''}"></i>`).join('');
  $('dotcap').textContent=on?`점 하나 = 인구 0.5% · 흰 점 ${on}개`:'점 하나 = 인구 0.5% · 0.25% 미만이라 점으로 표시되지 않음';
+ const parts=[];const L=(n,v)=>v&&parts.push(`<b>${n}</b> ${v}`);
+ L('지역',c.reg.join('·'));L('성별',c.sex.map(x=>x==='M'?'남성':'여성').join('·'));L('나이',c.age.map(a=>AGE[a]).join('·'));
+ L('종교',c.rel.map(k=>RELK.find(r=>r[0]===k)[1]).join('·'));L('취미',c.hob.map(i=>HOB[i][0]).join(c.hmode==='and'?' + ':' 또는 '));
+ const rg=(a,b,u)=>(a>-Infinity&&a>0)||b<Infinity?`${a>0&&a>-Infinity?a:''}~${b<Infinity?b:''}${u}`:'';
+ L('키',rg(c.h1,c.h2,'cm'));L('몸무게',rg(c.w1,c.w2,'kg'));L('소득',rg(c.i1,c.i2,'만원'));
+ L('혼인',c.mar.map(k=>MARK[k]).join('·'));L('안경',c.gla==='any'?'':c.gla==='y'?'씀':'안 씀');L('탈모',{any:'',none:'없음',sym:'증상 있음',bald:'대머리 수준'}[c.bal]);
+ $('applied').innerHTML=parts.length?'적용된 조건 — '+parts.join(' · '):'적용된 조건 없음 (전체 인구)';
  const rows=[['전체',total]].concat(S.map((st,k)=>[st[0],acc[k]]));
  $('fun').innerHTML=rows.map(([l,v])=>`<div class="fr"><span>${l}</span><span class="bar"><b style="width:${Math.max(v/total*100,v>0?.6:0)}%"></b></span><span>${v>=1e4?fmt(v/1e4)+'만':fmt(v)}</span></div>`).join('');
  try{localStorage.setItem('popcalc',JSON.stringify(snap()))}catch(e){}}
@@ -207,7 +217,7 @@ document.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>
 $('reset').addEventListener('click',()=>{load({});run()});
 $('f').addEventListener('input',run);$('f').addEventListener('change',run);
 let saved=null;try{saved=JSON.parse(localStorage.getItem('popcalc'))}catch(e){}
-load(saved||PRE[0]);run();
+load(saved||{});run();
 
 const SRC=[['지역·성별·나이','행정안전부 주민등록 인구통계 2026년 10월(k-calc.com 정리값). 총 51,075,282명','일부 지역 0~9세 여성 값 추출 오류는 남성값×0.953으로 보정 후 지역·성별 총계에 맞춰 재조정'],
  ['종교','한국갤럽 「한국인의 종교 1983~2025」: 종교인 40%(개신교 18·불교 16·천주교 6), 20대 4명 중 3명 무교, 60대 이상 절반 이상 종교 있음','연령별 비율은 위 수치에 맞춘 근사. 여성 ×1.12, 남성 ×0.88, 지역 배수는 2015 센서스의 지역 경향(영남 불교, 호남·수도권 개신교)을 근사 반영'],

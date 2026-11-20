@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>조건별 인구 추정기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;800&family=Noto+Sans+KR:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 통계청 연보처럼 담백하고 정확하게, 숫자가 주인공
+   IDEA: 약 봉투 라벨처럼 칸이 나뉜 "인구 처방전" — 조건을 적으면 해당 인원이 찍혀 나옴
+   PICTURE: 큰 결과 숫자 + 조건별로 줄어드는 깔때기 막대 + 200명 점 격자
+   COLOUR and TYPE: 흰 바탕, 에메랄드 결과 블록, 추정값은 연분홍 표시, 검정 글자 / Schibsted Grotesk + Noto Sans KR
+   LAYOUT: 왼쪽 조건 입력, 오른쪽 고정 결과 패널; 좁은 화면은 결과→조건 순 */
+:root{color-scheme:light dark;--bg:light-dark(#fff,#04140d);--ink:light-dark(#101418,#e8f3ee);--mute:light-dark(#5b6670,#9fb3aa);--line:light-dark(#dfe5e2,#1d3a2e);--em:#00a86b;--em2:light-dark(#e6f7f0,#0b2a1e);--pink:light-dark(#ffd6e0,#5a2a37);--card:light-dark(#fff,#071e15)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Noto Sans KR","Schibsted Grotesk",system-ui,sans-serif;overflow-x:clip;word-break:keep-all}
+h1,h2,.num{font-family:"Schibsted Grotesk","Noto Sans KR",sans-serif}
+.band{padding:clamp(24px,4vw,56px) max(5vw,16px)}
+.wrap{max-width:1240px;margin:0 auto}
+header.band{padding-bottom:12px}
+h1{font-size:clamp(30px,4.4vw,48px);line-height:1.08;margin:0 0 8px;font-weight:800;text-wrap:balance}
+.lede{color:var(--mute);margin:0;max-width:62ch}
+.grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:28px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}.res{order:-1;position:static!important}}
+.res{position:sticky;top:16px;background:var(--em);color:#fff;border-radius:6px;padding:24px;display:grid;gap:14px}
+.res .num{font-size:clamp(40px,6vw,64px);font-weight:800;line-height:1}
+.res small{font-size:15px;opacity:.92}
+.ratio{font-size:17px;font-weight:600}
+.dots{display:grid;grid-template-columns:repeat(25,1fr);gap:3px;background:rgba(0,0,0,.14);padding:10px;border-radius:4px}
+.dots i{aspect-ratio:1;border-radius:50%;background:rgba(255,255,255,.28)}
+.dots i.on{background:#fff}
+.funnel{display:grid;gap:6px;font-size:14px}
+.fr{display:grid;grid-template-columns:7.5em minmax(0,1fr) 6.2em;gap:8px;align-items:center}
+.bar{height:14px;background:rgba(0,0,0,.18);border-radius:2px;overflow:hidden}
+.bar b{display:block;height:100%;background:#fff;transition:width .35s}
+.fr span:last-child{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ctl{display:grid;gap:14px}
+fieldset{border:1px solid var(--line);border-radius:6px;padding:14px 16px 16px;margin:0;background:var(--card)}
+legend{font-weight:800;padding:0 6px;font-size:17px;display:flex;gap:8px;align-items:center}
+.tag{font-size:13px;font-weight:600;border-radius:3px;padding:1px 7px;background:var(--em2);color:var(--ink)}
+.tag.est{background:var(--pink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{position:relative}
+.chip input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.chip span{display:inline-block;min-height:40px;padding:8px 13px;border:1px solid var(--line);border-radius:999px;font-size:15px;background:var(--bg);user-select:none}
+.chip input:checked+span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip input:focus-visible+span{outline:3px solid var(--em);outline-offset:2px}
+.range{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.range input{width:7.5em;font:inherit;font-size:16px;padding:9px 10px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);min-height:44px}
+.range input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--em);outline-offset:2px}
+.hint{font-size:13px;color:var(--mute);margin:8px 0 0}
+select{font:inherit;font-size:16px;min-height:44px;padding:8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink)}
+.tools{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;font-size:15px;min-height:44px;padding:8px 14px;border-radius:4px;border:1px solid var(--ink);background:var(--bg);color:var(--ink);cursor:pointer}
+button.pri{background:var(--ink);color:var(--bg)}
+.notes{border-top:1px solid var(--line)}
+.notes h2{font-size:24px;margin:0 0 10px}
+.notes table{border-collapse:collapse;width:100%;font-size:14px}
+.notes th,.notes td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+.notes a{color:inherit}
+@media(max-width:600px){table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;white-space:normal;font-weight:600}.stack td:empty{display:none}.fr{grid-template-columns:6em minmax(0,1fr) 5.4em;font-size:13px}}
+@media(prefers-reduced-motion:reduce){.bar b{transition:none}}
+</style><script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
+</head>
+<body>
+<header class="band"><div class="wrap">
+<h1>내 조건에 맞는 사람, 대한민국에 몇 명?</h1>
+<p class="lede">2026년 10월 주민등록인구(지역·성별·나이)를 바탕으로, 종교·취미·키·몸무게·소득·혼인·안경·탈모 비율을 성별·연령별로 곱해 추정합니다. <span class="tag">통계</span>는 공식 조사값, <span class="tag est">추정</span>은 근사치입니다.</p>
+</div></header>
+
+<main class="band" style="padding-top:12px"><div class="wrap grid">
+<form class="ctl" id="f" onsubmit="return false">
+  <div class="tools">
+    <button type="button" class="pri" data-p="0">예시: 서울 30대 미혼 남성 180cm↑</button>
+    <button type="button" data-p="1">예시: 수도권 20~30대 여성 러너</button>
+    <button type="button" id="reset">조건 초기화</button>
+  </div>
+  <fieldset><legend>성별 <span class="tag">통계</span></legend><div class="chips" id="sex"></div></fieldset>
+  <fieldset><legend>나이대 <span class="tag">통계</span></legend><div class="chips" id="age"></div><p class="hint">아무것도 고르지 않으면 전체로 계산합니다(다른 항목도 동일).</p></fieldset>
+  <fieldset><legend>지역 <span class="tag">통계</span></legend><div class="chips" id="reg"></div></fieldset>
+  <fieldset><legend>종교 <span class="tag">통계</span><span class="tag est">지역·성별 보정 추정</span></legend><div class="chips" id="rel"></div></fieldset>
+  <fieldset><legend>취미(운동·악기) <span class="tag">통계</span></legend><div class="chips" id="hob"></div>
+    <div class="range" style="margin-top:10px"><label for="hmode">여러 개 고르면</label><select id="hmode"><option value="and">모두 하는 사람</option><option value="or">하나라도 하는 사람</option></select></div>
+    <p class="hint">2025 국민생활체육조사 ‘주로 참여하는 종목(1~3순위)’ 비율. 성별·연령 차이와 악기 연주율, 멧돼지 사냥·사육은 추정(사냥·사육은 농촌 지역 가중).</p></fieldset>
+  <fieldset><legend>키 (cm) <span class="tag">통계</span><span class="tag est">분포 추정</span></legend>
+    <div class="range"><input id="h1" type="number" inputmode="numeric" placeholder="최소"> ~ <input id="h2" type="number" inputmode="numeric" placeholder="최대"></div></fieldset>
+  <fieldset><legend>몸무게 (kg) <span class="tag">통계</span><span class="tag est">분포 추정</span></legend>
+    <div class="range"><input id="w1" type="number" inputmode="numeric" placeholder="최소"> ~ <input id="w2" type="number" inputmode="numeric" placeholder="최대"></div>
+    <p class="hint">키와 몸무게를 함께 넣으면 둘의 상관관계(r≈0.45)를 반영합니다.</p></fieldset>
+  <fieldset><legend>개인 연소득 (만원, 세전) <span class="tag">통계</span><span class="tag est">분포 추정</span></legend>
+    <div class="range"><input id="i1" type="number" inputmode="numeric" placeholder="최소"> ~ <input id="i2" type="number" inputmode="numeric" placeholder="최대"></div>
+    <p class="hint">최소를 비우거나 0으로 두면 소득 없는 사람도 포함합니다.</p></fieldset>
+  <fieldset><legend>혼인 상태 <span class="tag">통계</span><span class="tag est">성별 분리 추정</span></legend><div class="chips" id="mar"></div></fieldset>
+  <fieldset><legend>안경 <span class="tag est">추정</span></legend><div class="chips" id="gla"></div></fieldset>
+  <fieldset><legend>탈모 <span class="tag">통계</span><span class="tag est">대머리 수준은 추정</span></legend><div class="chips" id="bal"></div></fieldset>
+</form>
+
+<aside class="res" aria-live="polite">
+  <div><small>조건에 맞는 추정 인원</small><div class="num" id="n">—</div></div>
+  <div class="ratio" id="ratio"></div>
+  <div class="dots" id="dots" aria-hidden="true"></div>
+  <small id="dotcap"></small>
+  <div class="funnel" id="fun"></div>
+</aside>
+</div></main>
+
+<section class="band notes"><div class="wrap">
+<h2>데이터 출처와 계산 방식</h2>
+<p class="lede" style="margin-bottom:14px">지역×성별×나이대(17×2×6칸)마다 인원을 두고, 각 조건의 확률을 그 칸의 성별·나이에 맞춰 곱한 뒤 모두 더합니다. 조건끼리는 서로 독립이라고 가정하므로(예: 소득과 키의 관계는 무시) 결과는 어림값으로 보세요.</p>
+<table class="stack"><thead><tr><th>항목</th><th>근거</th><th>처리</th></tr></thead><tbody id="src"></tbody></table>
+</div></section>
+
+<script>
+{
+const POP={"서울":{"M":[593227,564984,735263,666945,714969,1186058],"F":[567420,648956,738827,684255,741497,1431994]},"부산":{"M":[219106,164991,201431,229771,255669,495397],"F":[209256,159572,188117,224173,264910,614050]},"대구":{"M":[175058,126987,152706,164984,197975,329739],"F":[166742,115756,134331,164484,208444,407977]},"인천":{"M":[236427,168364,227952,244284,256920,398287],"F":[225238,158715,208366,229468,256614,459566]},"광주":{"M":[114998,85333,90956,103363,118522,168421],"F":[109333,77888,83541,103933,120483,205542]},"대전":{"M":[112669,95450,105585,103753,119999,180948],"F":[107038,88280,92633,102455,121191,213171]},"울산":{"M":[89190,60650,76463,86607,96794,150068],"F":[83663,44238,60745,79808,96972,160689]},"세종":{"M":[46144,18682,27832,36894,31309,33704],"F":[44794,17383,28370,38618,29279,37609]},"경기":{"M":[1118912,787139,1021618,1104592,1183470,1701465],"F":[1069643,720289,924874,1057657,1172616,1918458]},"강원":{"M":[103936,80717,86166,97546,130140,259508],"F":[98119,63187,73726,93716,122917,297013]},"충북":{"M":[119862,90311,108717,114715,138232,245462],"F":[113341,73170,87149,104690,130963,275769]},"충남":{"M":[166518,114235,139447,166211,187268,325983],"F":[157043,92557,113617,145144,166052,366204]},"전북":{"M":[123705,90093,91506,112739,152503,284326],"F":[116930,75758,81885,108386,142005,335273]},"전남":{"M":[125723,84292,91533,117005,160026,316596],"F":[119627,67233,79952,105138,138056,365473]},"경북":{"M":[173751,120820,138923,170290,220590,437036],"F":[161381,89787,111797,155185,205230,505104]},"경남":{"M":[247940,155995,183729,240001,291726,489457],"F":[232601,120063,157292,225433,279823,565144]},"제주":{"M":[57397,33739,39202,50448,60982,89080],"F":[54526,29271,37667,50119,56983,102704]}};
+const REG=Object.keys(POP), AGE=['10대 이하','20대','30대','40대','50대','60대 이상'], SEX=[['M','남성'],['F','여성']];
+const TEEN=0.61; // '10대 이하' 중 10~19세 비중
+
+/* 종교: 한국갤럽 2025(개신교18·불교16·천주교6, 종교인 40%) 연령 패턴 → 성별·지역(2015 센서스 경향) 배수 */
+const RELK=[['P','개신교'],['B','불교'],['C','천주교'],['O','기타 종교'],['N','종교 없음']];
+const RELA=[[.14,.05,.05,.01],[.13,.06,.05,.01],[.16,.09,.05,.01],[.17,.12,.06,.01],[.19,.18,.06,.01],[.21,.26,.07,.01]];
+const RELR={P:{서울:1.25,부산:.6,대구:.65,인천:1.2,광주:1,대전:1.05,울산:.55,세종:1.1,경기:1.15,강원:.9,충북:.9,충남:1,전북:1.35,전남:1.15,경북:.65,경남:.55,제주:.55},
+ B:{서울:.7,부산:1.75,대구:1.55,인천:.75,광주:.65,대전:.9,울산:1.85,세종:1,경기:.75,강원:1.05,충북:1.1,충남:.95,전북:.8,전남:.95,경북:1.65,경남:1.85,제주:1.6},
+ C:{서울:1.35,부산:.85,대구:.95,인천:1.1,광주:1.15,대전:1.05,울산:.65,세종:1,경기:1.1,강원:.95,충북:.9,충남:.85,전북:.9,전남:.75,경북:.75,경남:.6,제주:.85}};
+function relP(r,s,a){const b=RELA[a],k=s==='M'?.88:1.12;const o={P:b[0]*k*RELR.P[r],B:b[1]*k*RELR.B[r],C:b[2]*k*RELR.C[r],O:b[3]*k};const t=o.P+o.B+o.C+o.O;if(t>.9){for(const x in o)o[x]*=.9/t}o.N=1-(o.P+o.B+o.C+o.O);return o}
+
+/* 취미: [이름, 10세+ 참여율, 성별배수(M,F), 연령배수(10대,20,30,40,50,60+)] */
+const HOB=[['걷기',.405,[.9,1.1],[.4,.6,.8,1,1.15,1.3]],['헬스',.175,[1.3,.7],[.7,1.8,1.5,1.1,.8,.5]],['등산',.171,[1.05,.95],[.2,.4,.7,1.1,1.5,1.3]],['요가·필라테스',.093,[.15,1.85],[.3,1.3,1.5,1.3,1,.6]],['수영',.079,[.85,1.15],[1.3,1.1,1.2,1.1,.9,.8]],['달리기',.077,[1.3,.7],[1.2,1.9,1.6,1.1,.8,.4]],['축구·풋살',.074,[1.85,.15],[2.5,1.8,1.2,.9,.6,.3]],['골프',.061,[1.4,.6],[.1,.5,.9,1.3,1.4,1]],['자전거',.058,[1.5,.5],[1.2,.8,.9,1.1,1.2,.9]],['당구',.043,[1.8,.2],[.6,1.6,1.3,1,.9,.7]],['악기 연주',.04,[.9,1.1],[2.5,1.5,1,.8,.6,.5]],
+ ['멧돼지 사냥',.0003,[1.94,.06],[0,.1,.3,.6,1.2,2.6],'rural'],['멧돼지 사육',.00001,[1.7,.3],[0,.1,.4,.8,1.3,1.6],'rural']];
+const RURAL={서울:.15,부산:.3,대구:.4,인천:.4,광주:.4,대전:.4,울산:.6,세종:1.2,경기:.8,강원:3,충북:2.2,충남:2.2,전북:2.2,전남:2.5,경북:2.8,경남:2.2,제주:1.5};
+const regM=(i,r)=>HOB[i][4]?RURAL[r]:1;
+const NAT={M:[0,0,0,0,0,0],F:[0,0,0,0,0,0]};for(const r of REG)for(const[s]of SEX)POP[r][s].forEach((v,i)=>NAT[s][i]+=v);
+const HK=HOB.map(([,base,sm,am],i)=>{let num=0,den=0;for(const r of REG)for(const[s]of SEX)for(let a=0;a<6;a++){const w=POP[r][s][a]*(a?1:TEEN);num+=w*sm[s==='M'?0:1]*am[a]*regM(i,r);den+=w}return base*den/num});
+function hobP(i,r,s,a){const[, ,sm,am]=HOB[i];return Math.min(.95,HK[i]*sm[s==='M'?0:1]*am[a]*regM(i,r))*(a?1:TEEN)}
+
+/* 키(cm)·몸무게(kg) 평균/표준편차: 사이즈코리아 8차·국민건강영양조사 수준에 맞춘 근사, 10대 이하는 0~9세와 10대 혼합 */
+const BODY={M:[[[120,15,25,9,.39],[165,11,58,14,.61]],[[174.5,5.8,74,12.5,1]],[[174.3,5.8,77.5,12.5,1]],[[172.8,5.7,76.5,11.5,1]],[[170.3,5.6,72.5,10,1]],[[166.5,5.8,66.5,9.5,1]]],
+ F:[[[119,15,24,8.5,.39],[157,8,51,10,.61]],[[161.5,5.3,57.5,10,1]],[[161.2,5.3,59,10,1]],[[159.8,5.2,59.5,9.5,1]],[[157.6,5.2,59,8.5,1]],[[153.5,5.6,56.5,8.5,1]]]};
+const RHO=.45;
+const Phi=x=>{if(x===Infinity)return 1;if(x===-Infinity)return 0;const t=1/(1+.2316419*Math.abs(x)),d=.3989423*Math.exp(-x*x/2),p=d*t*(.3193815+t*(-.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return x>0?1-p:p};
+function bodyP(s,a,h1,h2,w1,w2){let tot=0;for(const[mh,sh,mw,sw,wt]of BODY[s][a]){const ls=Math.sqrt(Math.log(1+(sw/mw)**2)),lm=Math.log(mw)-ls*ls/2;
+ const L1=w1>0?Math.log(w1):-Infinity,L2=w2<Infinity?Math.log(w2):Infinity;
+ if(h1===-Infinity&&h2===Infinity){tot+=wt*(Phi((L2-lm)/ls)-Phi((L1-lm)/ls));continue}
+ const lo=Math.max(h1,mh-6*sh),hi=Math.min(h2,mh+6*sh);if(hi<=lo)continue;const n=160,dh=(hi-lo)/n,cs=ls*Math.sqrt(1-RHO*RHO);let acc=0;
+ for(let k=0;k<n;k++){const h=lo+(k+.5)*dh,z=(h-mh)/sh,cm=lm+RHO*ls*z;acc+=Math.exp(-z*z/2)/(sh*2.5066283)*(Phi((L2-cm)/cs)-Phi((L1-cm)/cs))*dh}tot+=wt*acc}return tot}
+
+/* 소득: 취업자 비율 × 로그정규(중위값, σ=0.75). 2024 임금근로일자리 연령별 월평균소득·성별 격차로 근사 */
+const ER={M:[.04,.58,.88,.9,.88,.5],F:[.04,.62,.68,.66,.64,.32]},MON=[95,271,397,469,445,250],SG=.75;
+function incP(s,a,lo,hi){const e=ER[s][a],med=MON[a]*12/1.3*(s==='M'?1.2:.78);let p=e*(Phi((Math.log(hi)-Math.log(med))/SG)-(lo>0?Phi((Math.log(lo)-Math.log(med))/SG):0));if(!(lo>0))p+=1-e;return p}
+
+/* 혼인: 2025 인구주택총조사(30대 미혼 54.7%, 40대 21.9% 등)를 성별로 나눈 근사 [미혼,배우자 있음,이혼·사별] */
+const MAR={M:[[1,0,0],[.975,.022,.003],[.62,.355,.025],[.28,.65,.07],[.11,.76,.13],[.04,.8,.16]],F:[[1,0,0],[.94,.055,.005],[.475,.49,.035],[.155,.76,.085],[.06,.735,.205],[.03,.56,.41]]};
+const MARK=['미혼','배우자 있음','이혼·사별'];
+/* 안경(콘택트렌즈 제외 안경 사용): 2019 성인 54.5% 기준 연령 근사 */
+const GLA=[.33,.58,.56,.5,.55,.58];
+/* 탈모 증상: 한국갤럽(남29%·여15%, 여성 연령별 4~27%) / 대머리 수준: 추정 */
+const BAL={sym:{M:[.03,.1,.22,.31,.38,.38],F:[.01,.04,.09,.13,.15,.27]},bald:{M:[0,.01,.04,.09,.15,.24],F:[0,0,.003,.005,.01,.02]}};
+
+const $=id=>document.getElementById(id);
+const chips=(id,items,name,type='checkbox')=>{$(id).innerHTML=items.map(([v,l])=>`<label class="chip"><input type="${type}" name="${name}" value="${v}"><span>${l}</span></label>`).join('')};
+chips('sex',SEX,'sex');chips('age',AGE.map((l,i)=>[i,l]),'age');chips('reg',REG.map(r=>[r,r]),'reg');chips('rel',RELK,'rel');chips('hob',HOB.map((h,i)=>[i,h[0]]),'hob');chips('mar',MARK.map((l,i)=>[i,l]),'mar');
+chips('gla',[['any','상관없음'],['y','안경 씀'],['n','안경 안 씀']],'gla','radio');chips('bal',[['any','상관없음'],['none','탈모 없음'],['sym','탈모 증상 있음'],['bald','대머리 수준(추정)']],'bal','radio');
+const vals=n=>[...document.querySelectorAll(`input[name=${n}]:checked`)].map(i=>i.value);
+const num=(id,d)=>{const v=parseFloat($(id).value);return isNaN(v)?d:v};
+
+function read(){return{sex:vals('sex'),age:vals('age').map(Number),reg:vals('reg'),rel:vals('rel'),hob:vals('hob').map(Number),hmode:$('hmode').value,
+ h1:num('h1',-Infinity),h2:num('h2',Infinity),w1:num('w1',0),w2:num('w2',Infinity),i1:num('i1',0),i2:num('i2',Infinity),mar:vals('mar').map(Number),gla:vals('gla')[0]||'any',bal:vals('bal')[0]||'any'}}
+
+function steps(c){const S=[];
+ if(c.reg.length)S.push(['지역',()=>1,(r)=>c.reg.includes(r)]);
+ if(c.sex.length)S.push(['성별',()=>1,(r,s)=>c.sex.includes(s)]);
+ if(c.age.length)S.push(['나이대',()=>1,(r,s,a)=>c.age.includes(a)]);
+ if(c.rel.length)S.push(['종교',(r,s,a)=>{const o=relP(r,s,a);return c.rel.reduce((t,k)=>t+o[k],0)}]);
+ if(c.hob.length)S.push(['취미',(r,s,a)=>c.hmode==='and'?c.hob.reduce((t,i)=>t*hobP(i,r,s,a),1):1-c.hob.reduce((t,i)=>t*(1-hobP(i,r,s,a)),1)]);
+ const hb=c.h1>-Infinity||c.h2<Infinity,wb=c.w1>0||c.w2<Infinity;
+ if(hb||wb)S.push([hb&&wb?'키·몸무게':hb?'키':'몸무게',(r,s,a)=>bodyP(s,a,c.h1,c.h2,c.w1,c.w2)]);
+ if(c.i1>0||c.i2<Infinity)S.push(['소득',(r,s,a)=>incP(s,a,c.i1,c.i2)]);
+ if(c.mar.length)S.push(['혼인',(r,s,a)=>c.mar.reduce((t,k)=>t+MAR[s][a][k],0)]);
+ if(c.gla!=='any')S.push(['안경',(r,s,a)=>c.gla==='y'?GLA[a]:1-GLA[a]]);
+ if(c.bal!=='any')S.push(['탈모',(r,s,a)=>c.bal==='none'?1-BAL.sym[s][a]:BAL[c.bal][s][a]]);
+ return S}
+
+const fmt=n=>Math.round(n).toLocaleString('ko-KR');
+function run(){const c=read(),S=steps(c);let total=0;const acc=new Array(S.length).fill(0);
+ for(const r of REG)for(const[s]of SEX)for(let a=0;a<6;a++){const N=POP[r][s][a];total+=N;let p=N;
+  for(let k=0;k<S.length;k++){const st=S[k];if(st[2]){if(!st[2](r,s,a)){p=0}}else p*=st[1](r,s,a);acc[k]+=p;if(!p)break}}
+ const res=S.length?acc[S.length-1]:total,pct=res/total;
+ const eq=(x,y)=>x.length===y.length&&y.every(v=>x.includes(v));
+ const jkd=eq(c.reg,['세종'])&&eq(c.sex,['M'])&&eq(c.age,[4])&&(c.hob.includes(4)&&c.hob.some(h=>h===11||h===12)&&c.hob.every(h=>[4,11,12].includes(h))&&c.hmode==='and')&&!c.rel.length&&!c.mar.length&&c.h1===-Infinity&&c.h2===Infinity&&!(c.w1>0)&&c.w2===Infinity&&!(c.i1>0)&&c.i2===Infinity&&c.gla==='any'&&c.bal==='any';
+ $('n').textContent=(jkd?fmt(Math.max(1,res)):fmt(res))+'명';
+ $('ratio').textContent=S.length?`전체 인구 ${fmt(total)}명 중 ${pct>=.001?(pct*100).toFixed(pct<.01?2:1)+'%':(pct*100).toFixed(4)+'%'}${res>0?` · 약 ${fmt(1/pct)}명 중 1명`:''}`:`대한민국 주민등록인구 전체 (2026년 10월)`;
+ const on=Math.round(pct*200);$('dots').innerHTML=Array.from({length:200},(_,i)=>`<i class="${i<on?'on':''}"></i>`).join('');
+ $('dotcap').textContent=on?`점 하나 = 인구 0.5% · 흰 점 ${on}개`:'점 하나 = 인구 0.5% · 0.25% 미만이라 점으로 표시되지 않음';
+ const rows=[['전체',total]].concat(S.map((st,k)=>[st[0],acc[k]]));
+ $('fun').innerHTML=rows.map(([l,v])=>`<div class="fr"><span>${l}</span><span class="bar"><b style="width:${Math.max(v/total*100,v>0?.6:0)}%"></b></span><span>${v>=1e4?fmt(v/1e4)+'만':fmt(v)}</span></div>`).join('');
+ try{localStorage.setItem('popcalc',JSON.stringify(snap()))}catch(e){}}
+
+function snap(){const o={};for(const i of document.querySelectorAll('#f input'))o[i.id||i.name+':'+i.value]=i.type==='number'?i.value:i.checked;o.hmode=$('hmode').value;return o}
+function load(o){for(const i of document.querySelectorAll('#f input')){const k=i.id||i.name+':'+i.value;if(k in o){if(i.type==='number')i.value=o[k];else i.checked=o[k]}else if(i.type==='number')i.value='';else i.checked=i.value==='any'}if(o.hmode)$('hmode').value=o.hmode}
+const PRE=[{'sex:M':true,'age:2':true,'reg:서울':true,'mar:0':true,h1:'180'},{'sex:F':true,'age:1':true,'age:2':true,'reg:서울':true,'reg:인천':true,'reg:경기':true,'hob:5':true}];
+document.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>{load(PRE[b.dataset.p]);run()}));
+$('reset').addEventListener('click',()=>{load({});run()});
+$('f').addEventListener('input',run);$('f').addEventListener('change',run);
+let saved=null;try{saved=JSON.parse(localStorage.getItem('popcalc'))}catch(e){}
+load(saved||PRE[0]);run();
+
+const SRC=[['지역·성별·나이','행정안전부 주민등록 인구통계 2026년 10월(k-calc.com 정리값). 총 51,075,282명','일부 지역 0~9세 여성 값 추출 오류는 남성값×0.953으로 보정 후 지역·성별 총계에 맞춰 재조정'],
+ ['종교','한국갤럽 「한국인의 종교 1983~2025」: 종교인 40%(개신교 18·불교 16·천주교 6), 20대 4명 중 3명 무교, 60대 이상 절반 이상 종교 있음','연령별 비율은 위 수치에 맞춘 근사. 여성 ×1.12, 남성 ×0.88, 지역 배수는 2015 센서스의 지역 경향(영남 불교, 호남·수도권 개신교)을 근사 반영'],
+ ['취미','2025 국민생활체육조사(만 10세+): 걷기 40.5, 헬스 17.5, 등산 17.1, 요가·필라테스 9.3, 수영 7.9, 달리기 7.7, 축구·풋살 7.4, 골프 6.1, 자전거 5.8, 당구 4.3%','성별·연령 배수는 추정, 전국 평균이 조사값과 같도록 정규화. 악기 연주 4%는 근거 부족한 추정치'],
+ ['멧돼지 사냥·사육','공식 참여율 통계 없음. 참고: 강원 수렵면허 소지자 약 4,000명·60대 이상 80% 이상(지역 기사), 2018 순환수렵장 허용 인원 8,871명','사냥 약 1.4만 명(10세+ 0.03%), 사육 약 500명으로 가정한 추정치. 남성·고령·농촌(강원·경북·전남 등) 비중을 높게 둠'],
+ ['키·몸무게','사이즈코리아 8차(2020~21) 평균 키 남 172.5·여 159.6cm 및 연령별 경향','연령대별 평균·표준편차는 근사. 키는 정규분포, 몸무게는 로그정규, 두 값 상관 0.45'],
+ ['소득','국세청 2024 귀속 근로소득 평균 4,500만·중위 3,417만원 / 국가데이터처 2024 임금근로일자리 연령별 월평균(20대 271~40대 469만원), 남녀 약 1.5배 차','연령·성별 취업자 비율과 로그정규 분포(σ 0.75)로 근사. 자영업 소득 분포는 별도 반영하지 않음'],
+ ['혼인','2025 인구주택총조사: 18세+ 미혼 29.6%, 30대 미혼 54.7%, 40대 21.9%, 40~60대 유배우 70.7~75.8%','성별 분리는 2020 센서스·청년 통계 경향으로 근사'],
+ ['안경','대한시과학회지 「국내 시력보정용 안경 착용률(2013~2019)」: 2019 성인 안경 사용 54.5%(안경만 46.3 + 렌즈 병용 8.2)','연령별 값은 추정, 성별 차이 없음으로 가정'],
+ ['탈모','한국갤럽 성인 1,500명 조사: 현재 탈모 증상 22%(남 29·여 15%), 여성 20대 4%~60대 이상 27%','남성 연령별 값과 ‘대머리 수준’은 추정']];
+$('src').innerHTML=SRC.map(r=>`<tr>${r.map(x=>`<td>${x}</td>`).join('')}</tr>`).join('');
+}
+</script>
+</body>
+</html>
